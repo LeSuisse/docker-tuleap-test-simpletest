@@ -1,7 +1,9 @@
+### Quick & dirty work. Seems to work.
+
 ## Re-use tuleap base for caching ##
 FROM centos:centos6
 
-MAINTAINER Manuel Vacelet, manuel.vacelet@enalean.com
+MAINTAINER Thomas Gerbet <thomas.gerbet@enalean.com>
 
 RUN rpm -i http://dl.fedoraproject.org/pub/epel/6/i386/epel-release-6-8.noarch.rpm && \
     rpm -i http://rpms.famillecollet.com/enterprise/remi-release-6.rpm && \
@@ -14,17 +16,12 @@ COPY *.repo /etc/yum.repos.d/
 # RUN sed -i 's/#baseurl/baseurl/' /etc/yum.repos.d/epel.repo
 # RUN sed -i 's/mirrorlist/#mirrorlist/' /etc/yum.repos.d/epel.repo
 
-RUN yum -y install --enablerepo=remi,remi-php55 --enablerepo=rpmforge-extras \
-    php \
-    php-soap \
-    php-mysql \
-    php-gd \
-    php-process \
-    php-xml \
-    php-mbstring \
+# Tuleap essentials
+RUN yum -y install --enablerepo=remi --enablerepo=rpmforge-extras \
     php-restler \
     mysql-server \
     php-zendframework \
+    php-pecl-xdebug \
     htmlpurifier \
     jpgraph-tuleap \
     php-pear-Mail-mimeDecode \
@@ -35,9 +32,52 @@ RUN yum -y install --enablerepo=remi,remi-php55 --enablerepo=rpmforge-extras \
     tar \
     subversion \
     bzip2 \
-    php-pecl-xdebug \
-    php-opcache \
-    git && \
+    git
+
+# PHP compilation tools
+RUN yum -y install \
+    autoconf \
+    gcc-c++ \
+    glibc-devel \
+    openssl-devel \
+    bison \
+    re2c \
+    libicu-devel \
+    libxml2-devel \
+    libpng-devel \
+    libjpeg-devel
+
+# PHP source clone
+RUN git clone https://github.com/php/php-src.git --depth=1
+
+# PHP compilation
+RUN cd php-src && \
+    ./buildconf -f && \
+    ./configure \
+        --enable-mbstring \
+        --enable-soap \
+        --enable-intl \
+        --enable-xmlreader \
+        --with-openssl \
+        --with-gd \
+        --with-pear \
+        --with-mysqli=mysqlnd && \
+    make --quiet && \
+    make install
+
+# Cleanup
+RUN rm -rf php-src && \
+    yum -y remove \
+        autoconf \
+        gcc-c++ \
+        glibc-devel \
+        openssl-devel \
+        bison \
+        re2c \
+        libicu-devel \
+        libxml2-devel \
+        libpng-devel \
+        libjpeg-devel && \
     yum clean all
 
 RUN git config --global user.email "ut@tuleap.org" && git config --global user.name "Unit test runner"
